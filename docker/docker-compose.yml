@@ -1,0 +1,77 @@
+version: "3.8"
+services:
+
+  kaimono-edge-service:
+    depends_on:
+      - kaimono-redis
+      - kaimono-keycloak
+    image: "kaimono-edge-service"
+    container_name: "kaimono-edge-service"
+    ports:
+      - "9000:9000"
+      - "8000:8000"
+    environment:
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8000
+      - KAIMONO_CATALOG_SERVICE_URL=http://kaimono-catalog-service:9001
+      - KAIMONO_ORDER_SERVICE_URL=http://kaimono-order-service:9002
+      - SPRING_DATA_REDIS_HOST=kaimono-redis
+
+  kaimono-catalog-service:
+    depends_on:
+      - kaimono-postgres
+    image: "kaimono-catalog-service"
+    container_name: "kaimono-catalog-service"
+    ports:
+      - "9001:9001"
+      - "8001:8001"
+    environment:
+      - BPL_JVM_THREAD_COUNT=50
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8001
+      - SPRING_FLYWAY_URL=jdbc:postgresql://kaimono-postgres:5432/kaimonodb_catalog
+      - SPRING_R2DBC_URL=r2dbc:postgresql://kaimono-postgres:5432/kaimonodb_catalog
+
+  kaimono-order-service:
+    depends_on:
+      - kaimono-postgres
+    image: "kaimono-order-service"
+    container_name: "kaimono-order-service"
+    ports:
+      - "9002:9002"
+      - "8002:8002"
+    environment:
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8002
+      - KAIMONO_CATALOG_SERVICE_URI=http://kaimono-catalog-service:9001
+      - SPRING_R2DBC_URL=r2dbc:postgresql://kaimono-postgres:5432/kaimonodb_order
+      - SPRING_FLYWAY_URL=jdbc:postgresql://kaimono-postgres:5432/kaimonodb_order
+
+  kaimono-postgres:
+    image: "postgres:14.4"
+    container_name: "kaimono-postgres"
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  kaimono-redis:
+    image: "redis:7.0"
+    container_name: "kaimono-redis"
+    ports:
+      - "6379:6379"
+
+  kaimono-keycloak:
+    image: quay.io/keycloak/keycloak:19.0
+    container_name: "kaimono-keycloak"
+    command: start-dev --import-realm
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+    environment:
+      - KEYCLOAK_ADMIN=user
+      - KEYCLOAK_ADMIN_PASSWORD=password
+    ports:
+      - "8080:8080"

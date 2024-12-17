@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kaimono-postgres-config
+  labels:
+    db: kaimono-postgres
+data:
+  init.sql: |
+    CREATE DATABASE kaimonodb_catalog;
+    CREATE DATABASE kaimonodb_order;
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kaimono-postgres
+  labels:
+    db: kaimono-postgres
+spec:
+  selector:
+    matchLabels:
+      db: kaimono-postgres
+  template:
+    metadata:
+      labels:
+        db: kaimono-postgres
+    spec:
+      containers:
+        - name: kaimono-postgres
+          image: postgres:15.1
+          env:
+            - name: POSTGRES_USER
+              value: user
+            - name: POSTGRES_PASSWORD
+              value: password
+          resources:
+            requests:
+              cpu: 100m
+              memory: 60Mi
+            limits:
+              cpu: 200m
+              memory: 120Mi
+          volumeMounts:
+            - mountPath: /docker-entrypoint-initdb.d
+              name: kaimono-postgres-config-volume
+      volumes:
+        - name: kaimono-postgres-config-volume
+          configMap:
+            name: kaimono-postgres-config
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kaimono-postgres
+  labels:
+    db: kaimono-postgres
+spec:
+  type: ClusterIP
+  selector:
+    db: kaimono-postgres
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432
